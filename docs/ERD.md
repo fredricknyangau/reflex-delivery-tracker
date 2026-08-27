@@ -1,134 +1,112 @@
-# Reflex - Entity Relationship Diagram
+# Entity Relationship Diagram (ERD)
 
-## Week 3 - The Readiness Sprint
+## Visual Representation
+┌─────────────────────┐
+│     RETAILERS       │
+│─────────────────────│
+│ id (PK)             │
+│ business_name       │
+│ phone               │
+│ address             │
+│ created_at          │
+│ updated_at          │
+└─────────┬───────────┘
+          │
+          │ (1:many)
+          │
+┌─────────▼───────────┐         ┌────────────────────────┐
+│       USERS         │         │ DELIVERY_REQUESTS      │
+│─────────────────────│         │────────────────────────│
+│ id (PK)             │◄────────│ id (PK)                │
+│ name                │ (FK)    │ retailer_id (FK)       │
+│ phone               │         │ customer_name          │
+│ role (ENUM)         │         │ customer_phone         │
+│ retailer_id (FK)    │         │ address                │
+│ created_at          │         │ item_description       │
+│ updated_at          │         │ status (ENUM)          │
+└────────┬────────────┘         │ assigned_rider_id (FK) │
+         │                       │ confirmation_code      │
+         │ (1:many)             │ creator_id (FK)        │
+         │                       │ created_at             │
+         │                       │ updated_at             │
+         │                       └────────┬───────────────┘
+         │                                │
+         │                                │ (1:many)
+         │                                │
+         │                       ┌────────▼──────────────────┐
+         └──────────────────────►│DELIVERY_STATUS_HISTORY    │
+              (changed_by FK)    │───────────────────────────│
+                                 │ id (PK)                   │
+                                 │ delivery_request_id (FK)  │
+                                 │ status (ENUM)             │
+                                 │ changed_by_id (FK)        │
+                                 │ timestamp                 │
+                                 │ notes                     │
+                                 └───────────────────────────┘
 
-**Status:** Draft, derived from `PROBLEM_AND_DESIGN.md` Part 2; ready for Mark to confirm/refine
-**Owner:** Mark
-
----
-
-## 1. Entities Overview
-
-Four tables, directly mapping to the four domain classes identified in the OOD analysis:
-
-| Table               | Maps To           | Purpose                                                   |
-| ------------------- | ----------------- | --------------------------------------------------------- |
-| `retailers`         | `Retailer`        | A business account using the platform                     |
-| `users`             | `User`            | Any person acting as retailer staff, dispatcher, or rider |
-| `delivery_requests` | `DeliveryRequest` | The central object, one row per delivery, start to finish |
-| `status_events`     | `StatusEvent`     | Immutable log of every status change, the audit trail     |
-
-`Confirmation` from the design doc is **not** a separate table, it's implemented as a `confirmation_code` column directly on `delivery_requests`, since it has no independent lifecycle of its own, it's generated once and validated once, folding it into its own table would be unnecessary indirection for this scope.
-
----
-
-## 2. Entity Definitions
+## Table Descriptions
 
 ### `retailers`
+Represents a business account using the Reflex system. Each retailer is independent with their own delivery requests.
 
-| Column        | Type      | Constraints   |
-| ------------- | --------- | ------------- |
-| id            | SERIAL    | PRIMARY KEY   |
-| business_name | TEXT      | NOT NULL      |
-| phone         | TEXT      | NOT NULL      |
-| address       | TEXT      | NOT NULL      |
-| created_at    | TIMESTAMP | DEFAULT NOW() |
+**Indexes:** `idx_retailers_business_name`
 
 ---
 
 ### `users`
+Represents people in the system with three roles:
+- **RETAILER_STAFF:** Can create delivery requests
+- **DISPATCHER:** Can view all requests and assign riders
+- **RIDER:** Can view assigned deliveries and update status
 
-| Column      | Type      | Constraints                                                                                                                            |
-| ----------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| id          | SERIAL    | PRIMARY KEY                                                                                                                            |
-| retailer_id | INTEGER   | REFERENCES retailers(id), NULLABLE (dispatchers/riders may not belong to one specific retailer, depending on Part 3's confirmed model) |
-| name        | TEXT      | NOT NULL                                                                                                                               |
-| phone       | TEXT      | NOT NULL                                                                                                                               |
-| role        | TEXT      | NOT NULL, CHECK (role IN ('retailer_staff', 'dispatcher', 'rider'))                                                                    |
-| created_at  | TIMESTAMP | DEFAULT NOW()                                                                                                                          |
+**Foreign Keys:**
+- `retailer_id` → `retailers` (staff and riders belong to a retailer)
 
-**Note:** per Part 3's decision (dispatcher scope = per-retailer for this sprint), `retailer_id` should likely be NOT NULL for all three roles in the simplified model, confirm this with the team, since "per-retailer dispatcher" implies a dispatcher _does_ belong to exactly one retailer, not floating free.
+**Indexes:** `idx_users_role`, `idx_users_retailer_id`
 
 ---
 
 ### `delivery_requests`
+The core domain object. Represents a single delivery from request to completion.
 
-| Column            | Type      | Constraints                                                                                          |
-| ----------------- | --------- | ---------------------------------------------------------------------------------------------------- |
-| id                | SERIAL    | PRIMARY KEY                                                                                          |
-| retailer_id       | INTEGER   | REFERENCES retailers(id), NOT NULL                                                                   |
-| created_by        | INTEGER   | REFERENCES users(id), NOT NULL - the retailer staff member who logged it                             |
-| customer_name     | TEXT      | NOT NULL                                                                                             |
-| customer_phone    | TEXT      | NOT NULL                                                                                             |
-| address           | TEXT      | NOT NULL                                                                                             |
-| item_description  | TEXT      | NOT NULL                                                                                             |
-| status            | TEXT      | NOT NULL, DEFAULT 'Requested', CHECK (status IN ('Requested', 'Assigned', 'Picked Up', 'Delivered')) |
-| assigned_rider_id | INTEGER   | REFERENCES users(id), NULLABLE (null until assigned)                                                 |
-| confirmation_code | TEXT      | NULLABLE (generated when status becomes 'Picked Up')                                                 |
-| created_at        | TIMESTAMP | DEFAULT NOW()                                                                                        |
-| updated_at        | TIMESTAMP | DEFAULT NOW()                                                                                        |
+**Fields:**
+- `status` (ENUM): REQUESTED, ASSIGNED, PICKED_UP, DELIVERED
+- `assigned_rider_id`: The rider currently handling this delivery
+- `confirmation_code`: Generated when rider picks up, validated when delivered
+- `creator_id`: The retailer staff member who created it
 
-**Second safety net (per the architecture doc's failure-boundary discipline):** the CHECK constraint above enforces valid _values_ at the database level, but not valid _transitions_ (e.g., it won't stop `Delivered → Requested` by itself). Transition validity is enforced in the service layer per `ARCHITECTURE.md` Section 3, the CHECK constraint here is a defense against invalid data getting in at all, not a substitute for the state machine logic.
+**Foreign Keys:**
+- `retailer_id` → `retailers`
+- `assigned_rider_id` → `users` (rider)
+- `creator_id` → `users` (retailer staff)
+
+**Indexes:** `idx_delivery_requests_status`, `idx_delivery_requests_assigned_rider`, `idx_delivery_requests_retailer`
 
 ---
 
-### `status_events`
+### `delivery_status_history`
+An immutable audit trail. Every status change is logged here with WHO changed it and WHEN. This serves as proof of delivery.
 
-| Column              | Type      | Constraints                                |
-| ------------------- | --------- | ------------------------------------------ |
-| id                  | SERIAL    | PRIMARY KEY                                |
-| delivery_request_id | INTEGER   | REFERENCES delivery_requests(id), NOT NULL |
-| status              | TEXT      | NOT NULL                                   |
-| changed_by          | INTEGER   | REFERENCES users(id), NOT NULL             |
-| changed_at          | TIMESTAMP | DEFAULT NOW()                              |
+**Foreign Keys:**
+- `delivery_request_id` → `delivery_requests`
+- `changed_by_id` → `users`
 
-This table is intentionally append-only, no UPDATE or DELETE operations are expected against it, it exists purely as the permanent record backing "status visibility" and "proof of delivery" from the original problem statement.
+**Indexes:** `idx_delivery_status_history_request`
 
 ---
 
-## 3. Relationship Diagram
+## Key Relationships
 
-```
-retailers
-    │ 1
-    │
-    │ many
-    ▼
-  users ──────────────────┐
-    │ 1 (as rider)          │ 1 (as retailer_staff, created_by)
-    │                       │
-    │ many                  │ many
-    ▼                       ▼
-delivery_requests ◀─────────┘
-    │ 1
-    │
-    │ many
-    ▼
-status_events
-```
-
-**Cardinality summary:**
-
-- One `retailer` has many `users` and many `delivery_requests`
-- One `user` (rider) can be assigned many `delivery_requests`
-- One `user` (retailer_staff) can create many `delivery_requests`
-- One `delivery_request` has many `status_events`
+1. **Retailer → Users:** One retailer can have many staff and riders
+2. **Retailer → Delivery Requests:** One retailer creates many delivery requests
+3. **Rider → Delivery Requests:** One rider is assigned to many deliveries
+4. **Delivery Request → Status History:** One request has many status changes (immutable log)
 
 ---
 
-## 4. Migration File Mapping
+## Design Decisions
 
-| File                               | Creates                                                   |
-| ---------------------------------- | --------------------------------------------------------- |
-| `001_create_retailers.sql`         | `retailers`                                               |
-| `002_create_users.sql`             | `users` (depends on `retailers`)                          |
-| `003_create_delivery_requests.sql` | `delivery_requests` (depends on `retailers`, `users`)     |
-| `004_create_status_events.sql`     | `status_events` (depends on `delivery_requests`, `users`) |
-
-Numbered strictly in dependency order, matching the established migration convention from prior sprints, no migration may reference a table that hasn't been created by an earlier-numbered file.
-
----
-
-## 5. Open Question for Mark to Confirm
-
-Should `users.retailer_id` be `NOT NULL` for all roles, or nullable for dispatcher/rider if the team decides dispatchers/riders can serve multiple retailers rather than one? This directly depends on finalizing Part 3's "dispatcher scope" decision as a hard rule, not a soft assumption, before migrations are written.
+- **Multi-tenant:** Each retailer is independent (via `retailer_id` foreign key)
+- **Status as ENUM:** Enforces valid states at the database level
+- **Immutable history:** Status history never updates, only inserts; this is the source of truth for delivery proof
+- **Denormalized current status:** `status` field on `delivery_requests` for fast reads; kept in sync with history by application logic
