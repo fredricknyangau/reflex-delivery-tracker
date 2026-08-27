@@ -19,7 +19,7 @@ This document records the design decisions and engineering trade-offs made durin
 
 *   **Choice:** Structured multi-page directories (`/retailer`, `/dispatcher`, `/rider`) rather than a single massive HTML file or an SPA framework (like React/Vue).
 *   **Reasoning:**
-    *   Each of the three personas has a highly distinct set of responsibilities and UI forms. 
+    *   Each of the three personas has a highly distinct set of responsibilities and UI forms.
     *   Dividing them into separate directories avoids a single 1500-line "monster" script, making debugging and maintenance highly isolated (a bug in the Rider flow cannot bleed into or break the Retailer submission flow).
     *   Avoiding frameworks like React eliminates build systems, transpilation overhead, and tool dependency issues, keeping the deployment foot-print small and fast.
     *   **Cost accepted:** Page loads trigger standard browser navigations rather than smooth client-side DOM replacement.
