@@ -1,86 +1,35 @@
-# Database Design Trade-offs
+# Reflex - Architectural Trade-offs
 
-## Trade-off 1: Polling vs. Real-Time Push
-
-**Decision:** Use polling (client refreshes every few seconds) instead of WebSockets/real-time push.
-
-**Why Chosen:**
-- WebSockets require additional infrastructure (message queue, pub/sub service)
-- Polling is simpler to test and debug
-- Reflex scope is delivery status, not chat; sub-second latency isn't critical
-
-**Acceptable Because:**
-- A dispatcher refreshing every 5 seconds still gets fresh visibility of new requests
-- A rider seeing their assignments update in 5 seconds is acceptable for delivery use case
-- Cost: Slight delay in status propagation, minor increase in database load from frequent reads
-
-**If We Had More Time:**
-- Implement WebSocket layer with message queue (Redis) for true real-time
-- Add exponential backoff polling (slower refresh when no changes)
+This document records the design decisions and engineering trade-offs made during Week 3 (The Readiness Sprint) for the frontend of Reflex.
 
 ---
 
-## Trade-off 2: Denormalize Current Status
+## 1. Trade-off #1: Polling over WebSockets
 
-**Decision:** Store `status` on `delivery_requests` table instead of always deriving it from `delivery_status_history`.
-
-**Why Chosen:**
-- Dashboard queries (e.g., "show me all PICKED_UP requests") are read-heavy
-- Deriving status from history requires expensive JOIN and MAX(timestamp) query
-- Denormalization gives us O(1) lookups on status
-
-**Acceptable Because:**
-- `delivery_status_history` is the source of truth for audit
-- Application logic keeps `status` and history in sync (transactional update)
-- Cost: Slight risk of drift if sync logic breaks; mitigated by test coverage
-
-**If We Had More Time:**
-- Add database-level trigger to auto-sync status from history (higher confidence)
-- Create repair function to reconcile drift if it occurs
+*   **Choice:** Client-side polling using `setInterval` and `fetch()` at 8-second intervals.
+*   **Reasoning:**
+    *   WebSockets or Server-Sent Events (SSE) are the ideal engineering patterns for real-time delivery state tracking.
+    *   However, implementing WebSockets introduces significant backend connection handling and state management overhead, which introduces risk under a tight 4-day sprint deadline.
+    *   Polling is extremely simple to implement correctly, easily testable, and robust against networking fluctuations.
+    *   **Cost accepted:** Slight delay (up to 8 seconds) before the Dispatcher sees a new request or the Rider sees a new assignment. For Kenyan retail delivery tracking, sub-second reactivity is not a hard requirement, so this trade-off is highly acceptable.
 
 ---
 
-## Trade-off 3: No DB-Level Permission Enforcement
+## 2. Trade-off #2: Unified HTML sub-panels over Single Page App (SPA)
 
-**Decision:** No complex access control in the database layer; FastAPI middleware enforces role-based access.
-
-**Why Chosen:**
-- This is a single-team system (one retailer's dispatchers and riders)
-- Adding row-level security (RLS) policies adds complexity without clear benefit
-- Application-level checks are clearer to test and audit
-
-**Acceptable Because:**
-- Explicit (enforced by app logic) is easier to understand than implicit (enforced by DB)
-- We name it as a trade-off; not an oversight
-- Cost: If someone bypasses the API, they could see other retailers' data; acceptable for MVP
-
-**If We Had More Time:**
-- Implement PostgreSQL RLS policies to make data access hard-coded at DB level
-- Add audit logging of all data access (who queried what, when)
+*   **Choice:** Structured multi-page directories (`/retailer`, `/dispatcher`, `/rider`) rather than a single massive HTML file or an SPA framework (like React/Vue).
+*   **Reasoning:**
+    *   Each of the three personas has a highly distinct set of responsibilities and UI forms. 
+    *   Dividing them into separate directories avoids a single 1500-line "monster" script, making debugging and maintenance highly isolated (a bug in the Rider flow cannot bleed into or break the Retailer submission flow).
+    *   Avoiding frameworks like React eliminates build systems, transpilation overhead, and tool dependency issues, keeping the deployment foot-print small and fast.
+    *   **Cost accepted:** Page loads trigger standard browser navigations rather than smooth client-side DOM replacement.
 
 ---
 
-## Trade-off 4: Confirmation Code as Text, Not External QR Service
+## 3. Trade-off #3: Dual-Mode Sandbox Engine
 
-**Decision:** Generate a simple alphanumeric confirmation code (stored on `delivery_requests`) instead of integrating with external QR generation service or hardware scanner.
-
-**Why Chosen:**
-- No external service dependency
-- Riders can enter code manually or scan text-based QR (same info)
-- Matches pattern proven on Meridian Pivot (`print_job_id` correlation)
-
-**Acceptable Because:**
-- Text input is sufficient for MVP
-- Can scale to full QR infrastructure later
-- Cost: Slightly more manual, but acceptable for Kenyan delivery use case
-
-**If We Had More Time:**
-- Integrate QR code generation library
-- Add barcode scanner hardware support
-- Add photo proof-of-delivery (rider takes photo at delivery location)
-
----
-
-## Summary
-
-All four trade-offs are **named explicitly and defensible**. Each prioritizes **simplicity and speed of delivery** over optional sophistication, which is the correct call for a 4-day sprint.
+*   **Choice:** An API-first client that features a transparent client-side database sandbox using `localStorage` when the FastAPI server is offline.
+*   **Reasoning:**
+    *   The backend and frontend are built in parallel. Hardcoding static mock data directly in the components would violate the rule that the database is the source of truth, creating integration throwaway code.
+    *   By putting the sandbox inside `api.js` and keeping the interface identical to real `fetch` queries, the frontend remains 100% ready to integrate with FastAPI. The UI receives identical JSON shapes regardless of whether it hits Postgres or the Sandbox.
+    *   It guarantees that the demo is fully interactive and functional even if the database is unmigrated or the local server is turned off.
