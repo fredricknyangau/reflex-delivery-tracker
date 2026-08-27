@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reflex - Rider Portal</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo-group">
+        <h1>Reflex</h1>
+        <p>Rider Dashboard</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <div id="connection-status-container"></div>
+        <div class="user-badge" id="active-user-display">
+          <!-- Loaded dynamically -->
+        </div>
+        <button class="logout-btn" onclick="logout()">Back to Selector</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="feedback-alert" style="display: none;"></div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">My Assigned Deliveries</h2>
+      <button class="btn btn-secondary" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="refreshDeliveries()">
+        Refresh Now
+      </button>
+    </div>
+
+    <!-- Active delivery jobs list -->
+    <div class="grid" id="rider-deliveries-list">
+      <div class="card" style="text-align: center; color: var(--text-light); padding: 3rem;">
+        Loading assigned jobs...
+      </div>
+    </div>
+  </div>
+
+  <!-- Status History Modal -->
+  <div class="modal-backdrop" id="history-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="history-modal-title">Delivery Status Journey</h3>
+        <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="history-request-details" style="margin-bottom: 1.25rem; font-size: 0.9rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+          <!-- Request summary loaded dynamically -->
+        </div>
+        <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Audit Trail</h4>
+        <div class="timeline" id="history-timeline">
+          <!-- Timeline events loaded dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../api.js"></script>
+  <script src="rider.js"></script>
+</body>
+</html>
