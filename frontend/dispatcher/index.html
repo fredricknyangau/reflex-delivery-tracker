@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reflex - Dispatcher Portal</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo-group">
+        <h1>Reflex</h1>
+        <p>Dispatcher Dashboard</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <div id="connection-status-container"></div>
+        <div class="user-badge" id="active-user-display">
+          <!-- Loaded dynamically -->
+        </div>
+        <button class="logout-btn" onclick="logout()">Back to Selector</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="feedback-alert" style="display: none;"></div>
+
+    <div class="grid">
+      <!-- Section 1: Unassigned requests (Waiting for Rider) -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1.25rem;">
+          <h3 style="font-size: 1.1rem; font-weight: 600; margin: 0; color: #b45309;">
+            Open Requests (Waiting for Rider)
+          </h3>
+          <button class="btn btn-secondary" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="refreshData()">
+            Refresh Now
+          </button>
+        </div>
+        
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Item</th>
+                <th>Customer</th>
+                <th>Delivery Address</th>
+                <th>Logged At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="open-requests-body">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-light); padding: 2.5rem;">
+                  No pending delivery requests. All caught up!
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section 2: All deliveries (Tracking progress) -->
+      <div class="card">
+        <h3 class="card-title">All Deliveries Tracking</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Item</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Rider</th>
+                <th>Updated At</th>
+                <th>History</th>
+              </tr>
+            </thead>
+            <tbody id="all-requests-body">
+              <tr>
+                <td colspan="7" style="text-align: center; color: var(--text-light); padding: 2rem;">
+                  No requests created yet.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rider Assignment Modal -->
+  <div class="modal-backdrop" id="assign-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Assign Rider</h3>
+        <button class="modal-close" onclick="closeAssignModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="assign-req-details" style="margin-bottom: 1.25rem; font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+          <!-- Request summary loaded dynamically -->
+        </div>
+        
+        <form id="assign-form" onsubmit="handleAssignRider(event)">
+          <input type="hidden" id="assign-request-id">
+          
+          <div class="form-group">
+            <label for="rider-select">Select Available Rider *</label>
+            <select id="rider-select" class="form-control" required>
+              <option value="">-- Select Rider --</option>
+            </select>
+          </div>
+          
+          <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeAssignModal()">Cancel</button>
+            <button type="submit" id="confirm-assign-btn" class="btn btn-primary">Confirm Assignment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status History Modal -->
+  <div class="modal-backdrop" id="history-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="history-modal-title">Delivery Status Journey</h3>
+        <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="history-request-details" style="margin-bottom: 1.25rem; font-size: 0.9rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+          <!-- Request summary loaded dynamically -->
+        </div>
+        <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Audit Trail</h4>
+        <div class="timeline" id="history-timeline">
+          <!-- Timeline events loaded dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../api.js"></script>
+  <script src="dispatcher.js"></script>
+</body>
+</html>

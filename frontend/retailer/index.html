@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reflex - Retailer Portal</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo-group">
+        <h1>Reflex</h1>
+        <p>Retailer Dashboard</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+        <div id="connection-status-container"></div>
+        <div class="user-badge" id="active-user-display">
+          <!-- Loaded dynamically -->
+        </div>
+        <button class="logout-btn" onclick="logout()">Back to Selector</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="feedback-alert" style="display: none;"></div>
+
+    <div class="grid grid-2col">
+      <!-- Left side: Create Request Form -->
+      <div>
+        <div class="card">
+          <h3 class="card-title">Create Delivery Request</h3>
+          <form id="create-request-form" onsubmit="handleCreateRequest(event)">
+            <div class="form-group">
+              <label for="customer_name">Customer Name *</label>
+              <input type="text" id="customer_name" class="form-control" placeholder="e.g. Margaret Nduta" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="customer_phone">Customer Phone *</label>
+              <input type="tel" id="customer_phone" class="form-control" placeholder="e.g. 0700112233" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="address">Delivery Address *</label>
+              <input type="text" id="address" class="form-control" placeholder="e.g. Ngong Road, Suite 4B" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="item_description">Item Description *</label>
+              <textarea id="item_description" class="form-control" rows="3" placeholder="e.g. Carton of Cooking Oil (12L)" required></textarea>
+            </div>
+            
+            <button type="submit" id="submit-request-btn" class="btn btn-primary">
+              Submit Request
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right side: Active & Past Requests -->
+      <div>
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1.25rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 600; margin: 0;">My Delivery Requests</h3>
+            <button class="btn btn-secondary" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="refreshRequestList()">
+              Refresh Now
+            </button>
+          </div>
+          
+          <div class="table-container">
+            <table id="requests-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Item</th>
+                  <th>Customer</th>
+                  <th>Status</th>
+                  <th>Rider</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="requests-list-body">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-light); padding: 2rem;">
+                    No delivery requests found.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status History Modal -->
+  <div class="modal-backdrop" id="history-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="history-modal-title">Delivery Status Journey</h3>
+        <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="history-request-details" style="margin-bottom: 1.25rem; font-size: 0.9rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+          <!-- Request summary loaded dynamically -->
+        </div>
+        <h4 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Audit Trail</h4>
+        <div class="timeline" id="history-timeline">
+          <!-- Timeline events loaded dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../api.js"></script>
+  <script src="retailer.js"></script>
+</body>
+</html>
