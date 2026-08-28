@@ -15,80 +15,174 @@ This document walks through the complete lifecycle of a single delivery, from th
 
 ## 2. The Full Journey, Step by Step
 
-### Stage 1 - Request Created
+# Demo Script
 
-**Actor:** Retailer Staff
+## Setup (before presenting)
 
-1. Staff member opens the Retailer view.
-2. Fills in: customer name, customer phone, delivery address, item description.
-3. Submits the form.
-4. System creates a new `delivery_requests` row with `status = Requested`.
-5. A `status_events` entry is written: `Requested`, by this staff member, timestamped.
-6. Staff member sees the request appear in "My Requests" with status **Requested**.
+* [ ] Backend running
+* [ ] Frontend open in browser with 3 tabs/windows: Retailer, Dispatcher, Rider views
+* [ ] Fresh seed data confirmed
+* [ ] Test retailer, dispatcher, and rider accounts ready
+* [ ] Browser/network connection confirmed
+* [ ] Delivery request test details prepared
 
-**What the retailer can NOT do at this stage:** assign a rider themselves, or mark it delivered. Their role ends at creating the request and watching its status.
+## Script
 
----
+### **[0:00] Retailer creates a request**
 
-### Stage 2 - Assignment
+**Action:**
 
-**Actor:** Dispatcher
+* Switch to the **Retailer** view.
+* Open **Create Delivery Request**.
+* Enter:
 
-1. Dispatcher opens the Dispatcher view, sees a list of all requests with `status = Requested` for their retailer.
-2. Selects a request, selects an available rider from a list, clicks Assign.
-3. System runs the atomic conditional update: `Requested → Assigned`, only succeeds if the request is still `Requested` (protects against two dispatchers assigning the same request at once, see `ARCHITECTURE.md` Section 8).
-4. A `status_events` entry is written: `Assigned`, by this dispatcher.
-5. The assigned rider's view will now show this request the next time it polls (see `ARCHITECTURE.md` Section 7).
-6. Retailer's view updates (on their next poll) to show status **Assigned**.
+  * Customer name
+  * Customer phone
+  * Delivery address
+  * Item description
+* Click **Submit**.
 
-**What happens on a failed assignment attempt:** if another dispatcher already assigned it a moment earlier, this dispatcher sees a clear message ("Already assigned to [rider name]") instead of a silent failure or a crash.
+**Expected:**
 
----
-
-### Stage 3 - Pickup
-
-**Actor:** Rider
-
-1. Rider opens their view, sees only requests where `assigned_rider_id` is their own user ID.
-2. Rider physically collects the item, then taps "Mark Picked Up" in the app.
-3. System validates the current status is `Assigned` (rejects if somehow already `Picked Up` or `Delivered`).
-4. Status transitions: `Assigned → Picked Up`.
-5. System generates a `confirmation_code`, stored on the request, and displays it to the rider (as text, or rendered as a simple QR client-side).
-6. A `status_events` entry is written: `Picked Up`, by this rider.
-7. Retailer's view updates to show status **Picked Up**.
-
-**Why the code is generated here, not earlier:** generating it at Pickup (not at request creation) ties the confirmation specifically to the moment physical custody actually begins, matching the real-world event it's meant to represent.
+* A new delivery request appears under **My Requests**.
+* Status is **Requested**.
 
 ---
 
-### Stage 4 - Delivery Confirmation
+### **[0:30] Dispatcher sees the request**
 
-**Actor:** Rider (with the customer, in practice)
+**Action:**
 
-1. At the delivery location, the rider enters/scans the confirmation code (shown to the customer, or read back from wherever the rider recorded it).
-2. Rider submits the code along with the "Mark Delivered" action.
-3. System validates: current status must be `Picked Up`, AND the submitted code must match the stored `confirmation_code`.
-4. If either check fails, the transition is rejected, status remains `Picked Up`, no partial state is written.
-5. If both checks pass: status transitions `Picked Up → Delivered`.
-6. A `status_events` entry is written: `Delivered`, by this rider.
-7. Retailer's view updates to show status **Delivered**, this is also the final state.
+* Switch to the **Dispatcher** view.
+* Locate the newly created request.
+* Confirm that it appears with status **Requested**.
+
+**Expected:**
+
+* The request is visible in the dispatcher's open requests list.
 
 ---
 
-### Stage 5 - Proof of Delivery (Always Available)
+### **[0:50] Dispatcher assigns a rider**
 
-**Actor:** Any (typically Retailer, for disputes)
+**Action:**
 
-At any point, any actor can view the full `status_events` history for a request:
+* Select the delivery request.
+* Select an available rider.
+* Click **Assign**.
 
-```
+**Expected:**
+
+* Status changes from **Requested** to **Assigned**.
+* The assigned rider is displayed.
+* The request will become visible in that rider's delivery list.
+
+**Action:**
+
+* Switch to the **Retailer** view.
+* Refresh or wait for the next poll.
+
+**Expected:**
+
+* The retailer now sees **Assigned**.
+
+---
+
+### **[1:20] Rider receives the delivery**
+
+**Action:**
+
+* Switch to the **Rider** view.
+* Locate the assigned delivery.
+
+**Expected:**
+
+* The delivery appears under **My Deliveries**.
+* Status is **Assigned**.
+
+---
+
+### **[1:45] Rider marks the item as Picked Up**
+
+**Action:**
+
+* Click **Mark Picked Up**.
+
+**Expected:**
+
+* Status changes from **Assigned** to **Picked Up**.
+* A confirmation code is generated and displayed.
+* The rider can see the confirmation code, either as text or as a QR code if the interface renders it.
+
+**Action:**
+
+* Note or display the generated confirmation code.
+
+---
+
+### **[2:10] Retailer sees the pickup**
+
+**Action:**
+
+* Switch to the **Retailer** view.
+* Refresh or wait for the next poll.
+
+**Expected:**
+
+* Status changes to **Picked Up**.
+
+---
+
+### **[2:25] Rider confirms the delivery**
+
+**Action:**
+
+* Return to the **Rider** view.
+* Open the delivery.
+* Enter or scan the confirmation code.
+* Click **Mark Delivered**.
+
+**Expected:**
+
+* The system verifies that:
+
+  1. The current status is **Picked Up**.
+  2. The submitted confirmation code matches the stored code.
+* Status changes from **Picked Up** to **Delivered**.
+
+---
+
+### **[2:55] Retailer sees the completed delivery**
+
+**Action:**
+
+* Switch to the **Retailer** view.
+* Refresh or wait for the next poll.
+
+**Expected:**
+
+* Status displays **Delivered**.
+
+---
+
+### **[3:10] Show the complete status history**
+
+**Action:**
+
+* Open the request's **status history**.
+* Show the recorded events.
+
+**Expected:**
+
+```text
 Requested   → 09:12, by [staff name]
 Assigned    → 09:20, by [dispatcher name], to [rider name]
 Picked Up   → 09:45, by [rider name]
 Delivered   → 10:15, by [rider name]
 ```
+---
 
-This directly answers the original problem statement's requirement for "proof of delivery," it's not a single flag, it's a complete, timestamped, attributed history that can't be silently edited.
+### **[3:40] Close**
 
 ---
 
