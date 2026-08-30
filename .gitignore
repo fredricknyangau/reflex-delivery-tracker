@@ -1,4 +1,24 @@
-.venv
+
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local secrets and config
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+config/local.*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
