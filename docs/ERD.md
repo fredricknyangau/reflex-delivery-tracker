@@ -1,112 +1,136 @@
 # Entity Relationship Diagram (ERD)
 
-## Visual Representation
-┌─────────────────────┐
-│     RETAILERS       │
-│─────────────────────│
-│ id (PK)             │
-│ business_name       │
-│ phone               │
-│ address             │
-│ created_at          │
-│ updated_at          │
-└─────────┬───────────┘
-          │
-          │ (1:many)
-          │
-┌─────────▼───────────┐         ┌────────────────────────┐
-│       USERS         │         │ DELIVERY_REQUESTS      │
-│─────────────────────│         │────────────────────────│
-│ id (PK)             │◄────────│ id (PK)                │
-│ name                │ (FK)    │ retailer_id (FK)       │
-│ phone               │         │ customer_name          │
-│ role (ENUM)         │         │ customer_phone         │
-│ retailer_id (FK)    │         │ address                │
-│ created_at          │         │ item_description       │
-│ updated_at          │         │ status (ENUM)          │
-└────────┬────────────┘         │ assigned_rider_id (FK) │
-         │                       │ confirmation_code      │
-         │ (1:many)             │ creator_id (FK)        │
-         │                       │ created_at             │
-         │                       │ updated_at             │
-         │                       └────────┬───────────────┘
-         │                                │
-         │                                │ (1:many)
-         │                                │
-         │                       ┌────────▼──────────────────┐
-         └──────────────────────►│DELIVERY_STATUS_HISTORY    │
-              (changed_by FK)    │───────────────────────────│
-                                 │ id (PK)                   │
-                                 │ delivery_request_id (FK)  │
-                                 │ status (ENUM)             │
-                                 │ changed_by_id (FK)        │
-                                 │ timestamp                 │
-                                 │ notes                     │
-                                 └───────────────────────────┘
+## 1. Visual Entity Relationship
 
-## Table Descriptions
-
-### `retailers`
-Represents a business account using the Reflex system. Each retailer is independent with their own delivery requests.
-
-**Indexes:** `idx_retailers_business_name`
+```
+┌──────────────────────────────────────┐
+│              retailers               │
+├──────────────────────────────────────┤
+│ id (PK, SERIAL)                      │
+│ business_name (TEXT NOT NULL)        │
+│ phone (TEXT NOT NULL)                │
+│ address (TEXT NOT NULL)              │
+│ created_at (TIMESTAMP DEFAULT NOW()) │
+└──────────────────┬───────────────────┘
+                   │
+                   │ 1:N
+                   ▼
+┌──────────────────────────────────────┐        ┌────────────────────────────────────────────────────────┐
+│                users                 │        │                   delivery_requests                    │
+├──────────────────────────────────────┤        ├────────────────────────────────────────────────────────┤
+│ id (PK, SERIAL)                      │◄───────┤ id (PK, SERIAL)                                        │
+│ retailer_id (FK -> retailers.id)     │  (FK)  │ retailer_id (FK -> retailers.id)                       │
+│ name (TEXT NOT NULL)                 │        │ created_by (FK -> users.id)                            │
+│ phone (TEXT NOT NULL)                │        │ customer_name (TEXT NOT NULL)                          │
+│ role (TEXT CHECK: staff/disp/rider)  │        │ customer_phone (TEXT NOT NULL)                         │
+│ created_at (TIMESTAMP DEFAULT NOW()) │        │ address (TEXT NOT NULL)                                │
+└──────────────────┬───────────────────┘        │ item_description (TEXT NOT NULL)                       │
+                   │                            │ status (TEXT CHECK: Requested/Assigned/Picked/Deliv)   │
+                   │                            │ assigned_rider_id (FK -> users.id, NULLABLE)           │
+                   │                            │ confirmation_code (TEXT, NULLABLE)                     │
+                   │                            │ created_at (TIMESTAMP DEFAULT NOW())                   │
+                   │                            │ updated_at (TIMESTAMP DEFAULT NOW())                   │
+                   │                            └───────────────────────────┬────────────────────────────┘
+                   │                                                        │
+                   │                                                        │ 1:N
+                   │                                                        ▼
+                   │                                    ┌────────────────────────────────────────────────┐
+                   │                                    │                 status_events                  │
+                   │                                    ├────────────────────────────────────────────────┤
+                   │                                    │ id (PK, SERIAL)                                │
+                   │                                    │ delivery_request_id (FK -> deliv_requests.id)  │
+                   └───────────────────────────────────►│ status (TEXT NOT NULL)                         │
+                               (changed_by FK)          │ changed_by (FK -> users.id)                    │
+                                                        │ changed_at (TIMESTAMP DEFAULT NOW())           │
+                                                        └────────────────────────────────────────────────┘
+```
 
 ---
 
-### `users`
-Represents people in the system with three roles:
-- **RETAILER_STAFF:** Can create delivery requests
-- **DISPATCHER:** Can view all requests and assign riders
-- **RIDER:** Can view assigned deliveries and update status
+## 2. Table Specifications & Schema Definitions
 
-**Foreign Keys:**
-- `retailer_id` → `retailers` (staff and riders belong to a retailer)
+### `retailers` (Migration 001)
 
-**Indexes:** `idx_users_role`, `idx_users_retailer_id`
+Represents independent merchant / shop accounts using Reflex in Kenya (e.g. Mama Mboga stalls, pharmacy distributors, electronic shops in Nairobi).
 
----
-
-### `delivery_requests`
-The core domain object. Represents a single delivery from request to completion.
-
-**Fields:**
-- `status` (ENUM): REQUESTED, ASSIGNED, PICKED_UP, DELIVERED
-- `assigned_rider_id`: The rider currently handling this delivery
-- `confirmation_code`: Generated when rider picks up, validated when delivered
-- `creator_id`: The retailer staff member who created it
-
-**Foreign Keys:**
-- `retailer_id` → `retailers`
-- `assigned_rider_id` → `users` (rider)
-- `creator_id` → `users` (retailer staff)
-
-**Indexes:** `idx_delivery_requests_status`, `idx_delivery_requests_assigned_rider`, `idx_delivery_requests_retailer`
+| Column          | Type        | Constraints     | Description                                   |
+| :-------------- | :---------- | :-------------- | :-------------------------------------------- |
+| `id`            | `SERIAL`    | `PRIMARY KEY`   | Unique retailer identifier                    |
+| `business_name` | `TEXT`      | `NOT NULL`      | Registered trading name of retailer           |
+| `phone`         | `TEXT`      | `NOT NULL`      | Contact phone number (e.g., Safaricom/Airtel) |
+| `address`       | `TEXT`      | `NOT NULL`      | Physical premises / pickup hub location       |
+| `created_at`    | `TIMESTAMP` | `DEFAULT NOW()` | Registration timestamp                        |
 
 ---
 
-### `delivery_status_history`
-An immutable audit trail. Every status change is logged here with WHO changed it and WHEN. This serves as proof of delivery.
+### `users` (Migration 002)
 
-**Foreign Keys:**
-- `delivery_request_id` → `delivery_requests`
-- `changed_by_id` → `users`
+Represents actors interacting with the system across three distinct roles: `retailer_staff`, `dispatcher`, and `rider`.
 
-**Indexes:** `idx_delivery_status_history_request`
+| Column        | Type        | Constraints                                                          | Description                           |
+| :------------ | :---------- | :------------------------------------------------------------------- | :------------------------------------ |
+| `id`          | `SERIAL`    | `PRIMARY KEY`                                                        | Unique user identifier                |
+| `retailer_id` | `INTEGER`   | `NOT NULL REFERENCES retailers(id) ON DELETE CASCADE`                | Associated merchant tenant            |
+| `name`        | `TEXT`      | `NOT NULL`                                                           | Full name of actor                    |
+| `phone`       | `TEXT`      | `NOT NULL`                                                           | Contact number for coordination / SMS |
+| `role`        | `TEXT`      | `NOT NULL CHECK (role IN ('retailer_staff', 'dispatcher', 'rider'))` | System access role                    |
+| `created_at`  | `TIMESTAMP` | `DEFAULT NOW()`                                                      | Record creation timestamp             |
+
+**Indexes (Migration 005):**
+
+- `idx_users_retailer_id` on `users(retailer_id)` - Accelerates multi-tenant user filtering.
+- `idx_users_role` on `users(role)` - Speeds up dispatcher queries fetching active riders.
 
 ---
 
-## Key Relationships
+### `delivery_requests` (Migration 003)
 
-1. **Retailer → Users:** One retailer can have many staff and riders
-2. **Retailer → Delivery Requests:** One retailer creates many delivery requests
-3. **Rider → Delivery Requests:** One rider is assigned to many deliveries
-4. **Delivery Request → Status History:** One request has many status changes (immutable log)
+The central operational aggregate. Governs the delivery lifecycle through a strict backend state machine.
+
+| Column              | Type        | Constraints                                                                                          | Description                                        |
+| :------------------ | :---------- | :--------------------------------------------------------------------------------------------------- | :------------------------------------------------- |
+| `id`                | `SERIAL`    | `PRIMARY KEY`                                                                                        | Unique delivery request ID                         |
+| `retailer_id`       | `INTEGER`   | `NOT NULL REFERENCES retailers(id) ON DELETE CASCADE`                                                | Tenant owner of delivery                           |
+| `created_by`        | `INTEGER`   | `NOT NULL REFERENCES users(id) ON DELETE RESTRICT`                                                   | Staff member who initiated request                 |
+| `customer_name`     | `TEXT`      | `NOT NULL`                                                                                           | Recipient customer name                            |
+| `customer_phone`    | `TEXT`      | `NOT NULL`                                                                                           | Recipient phone number                             |
+| `address`           | `TEXT`      | `NOT NULL`                                                                                           | Drop-off destination address                       |
+| `item_description`  | `TEXT`      | `NOT NULL`                                                                                           | Package description & special handling             |
+| `status`            | `TEXT`      | `NOT NULL DEFAULT 'Requested' CHECK (status IN ('Requested', 'Assigned', 'Picked Up', 'Delivered'))` | Current lifecycle state                            |
+| `assigned_rider_id` | `INTEGER`   | `NULLABLE REFERENCES users(id) ON DELETE SET NULL`                                                   | Rider currently assigned                           |
+| `confirmation_code` | `TEXT`      | `NULLABLE`                                                                                           | Generated 6-digit confirmation token (`RX-XXXXXX`) |
+| `created_at`        | `TIMESTAMP` | `DEFAULT NOW()`                                                                                      | Request creation timestamp                         |
+| `updated_at`        | `TIMESTAMP` | `DEFAULT NOW()`                                                                                      | Last status transition timestamp                   |
+
+**Indexes (Migration 005):**
+
+- `idx_delivery_requests_status` on `delivery_requests(status)` - Optimizes polling for unassigned requests (`WHERE status = 'Requested'`).
+- `idx_delivery_requests_retailer_id` on `delivery_requests(retailer_id)` - Scopes retailer portal queries.
+- `idx_delivery_requests_assigned_rider_id` on `delivery_requests(assigned_rider_id)` - Accelerates rider dashboard polling.
 
 ---
 
-## Design Decisions
+### `status_events` (Migration 004)
 
-- **Multi-tenant:** Each retailer is independent (via `retailer_id` foreign key)
-- **Status as ENUM:** Enforces valid states at the database level
-- **Immutable history:** Status history never updates, only inserts; this is the source of truth for delivery proof
-- **Denormalized current status:** `status` field on `delivery_requests` for fast reads; kept in sync with history by application logic
+Immutable, append-only event ledger capturing every state change with actor identity and timestamp for auditable proof of delivery.
+
+| Column                | Type        | Constraints                                                   | Description                                                       |
+| :-------------------- | :---------- | :------------------------------------------------------------ | :---------------------------------------------------------------- |
+| `id`                  | `SERIAL`    | `PRIMARY KEY`                                                 | Unique event audit ID                                             |
+| `delivery_request_id` | `INTEGER`   | `NOT NULL REFERENCES delivery_requests(id) ON DELETE CASCADE` | Target delivery request                                           |
+| `status`              | `TEXT`      | `NOT NULL`                                                    | State entered (`Requested`, `Assigned`, `Picked Up`, `Delivered`) |
+| `changed_by`          | `INTEGER`   | `NOT NULL REFERENCES users(id) ON DELETE RESTRICT`            | Actor executing transition                                        |
+| `changed_at`          | `TIMESTAMP` | `DEFAULT NOW()`                                               | Immutable event timestamp                                         |
+
+**Indexes (Migration 005):**
+
+- `idx_status_events_delivery_request_id` on `status_events(delivery_request_id)` - Speeds up history retrieval and timeline rendering.
+
+---
+
+## 3. Relational Integrity & Multi-Tenancy Rules
+
+1. **Multi-Tenant Isolation:** `retailer_id` scopes merchant data. Requests and staff are tied to the tenant entity.
+2. **Audit Preservation:** `changed_by` references `users(id)` with `RESTRICT` on delete, ensuring the audit trail cannot be invalidated by deleting a user.
+3. **Atomic State & Event Synchronization:** Every update to `delivery_requests.status` is committed within a single database transaction alongside its corresponding `status_events` insert.
+4. **Optimistic Concurrency Control:** Rider assignment uses atomic conditional `UPDATE delivery_requests SET status = 'Assigned', assigned_rider_id = $1 WHERE id = $2 AND status = 'Requested' RETURNING *` to eliminate race conditions between multiple dispatchers.
