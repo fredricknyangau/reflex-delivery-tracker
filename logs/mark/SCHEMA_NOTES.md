@@ -2,56 +2,53 @@
 
 ## Schema Overview
 
-Built 4 tables + 2 ENUMs to support the Reflex delivery tracking system.
+Built 4 relational tables with strict check constraints and targeted performance indexes to support the Reflex delivery tracking system.
 
 ### Tables
 
-1. **retailers** — Business accounts using the system. Multi-tenant foundation.
-2. **users** — People (staff, dispatchers, riders) with role-based access
-3. **delivery_requests** — Core domain object; the delivery lifecycle
-4. **delivery_status_history** — Immutable audit trail; proof of delivery
+1. **`retailers`** (Migration `001_create_retailers.sql`) - Merchant accounts using the system; foundational tenant boundary.
+2. **`users`** (Migration `002_create_users.sql`) - System actors (`retailer_staff`, `dispatcher`, `rider`) tied to a retailer tenant.
+3. **`delivery_requests`** (Migration `003_create_delivery_requests.sql`) - Core domain entity governing delivery lifecycle (`Requested` → `Assigned` → `Picked Up` → `Delivered`). Includes `created_by`, `assigned_rider_id`, and `confirmation_code`.
+4. **`status_events`** (Migration `004_create_status_events.sql`) - Immutable audit trail capturing every state change with `changed_by` and `changed_at` timestamps for non-repudiation proof of delivery.
 
-### ENUMs
+### Role & Status Constraints
 
-- `user_role`: RETAILER_STAFF, DISPATCHER, RIDER
-- `delivery_status`: REQUESTED, ASSIGNED, PICKED_UP, DELIVERED
+- `users.role`: CHECK constraint `('retailer_staff', 'dispatcher', 'rider')`
+- `delivery_requests.status`: CHECK constraint `('Requested', 'Assigned', 'Picked Up', 'Delivered')`
 
 ## Key Design Decisions
 
-1. **Multi-tenant:** Each retailer is independent (no cross-retailer visibility)
-2. **Immutable history:** Status history is append-only, source of truth
-3. **Denormalized status:** Current status on request for read speed
-4. **Simple confirmation:** Text code, not external QR service
+1. **Multi-tenant Foundation:** Every request and staff member is scoped by `retailer_id`.
+2. **Immutable Audit Ledger:** `status_events` is append-only. History is never updated or deleted in place.
+3. **Denormalized Fast Reads:** Current status resides on `delivery_requests` for single-query dashboards, while `status_events` maintains complete provenance.
+4. **Atomic Concurrency Protection:** State updates and audit event logging occur inside single atomic database transactions (`async with DatabaseConnection.transaction() as conn:`).
+5. **Confirmation Code Tokenization:** 6-digit verification code (`RX-XXXXXX`) generated at pickup and verified at dropoff.
 
-## Indexes Created
+## Indexes Created (Migration `005_add_indexes.sql`)
 
-| Table | Index | Purpose |
-|-------|-------|---------|
-| retailers | idx_retailers_business_name | Quick shop lookups |
-| users | idx_users_role | Filter by user type |
-| users | idx_users_retailer_id | Find staff/riders by retailer |
-| delivery_requests | idx_delivery_requests_status | Dispatcher dashboard (pending/assigned) |
-| delivery_requests | idx_delivery_requests_assigned_rider | Rider's deliveries |
-| delivery_requests | idx_delivery_requests_retailer | Retailer's requests |
-| delivery_status_history | idx_delivery_status_history_request | Timeline of a delivery |
+| Table               | Index Name                                | Indexed Column        | Purpose                                                     |
+| :------------------ | :---------------------------------------- | :-------------------- | :---------------------------------------------------------- |
+| `delivery_requests` | `idx_delivery_requests_status`            | `status`              | Dispatcher dashboard polling (`WHERE status = 'Requested'`) |
+| `delivery_requests` | `idx_delivery_requests_retailer_id`       | `retailer_id`         | Retailer portal multi-tenant scoping                        |
+| `delivery_requests` | `idx_delivery_requests_assigned_rider_id` | `assigned_rider_id`   | Rider dashboard polling (`WHERE assigned_rider_id = $1`)    |
+| `status_events`     | `idx_status_events_delivery_request_id`   | `delivery_request_id` | Delivery timeline & audit history lookups                   |
+| `users`             | `idx_users_retailer_id`                   | `retailer_id`         | Tenant user filtering                                       |
+| `users`             | `idx_users_role`                          | `role`                | Dispatcher rider selection drop-down                        |
 
-## Constraints
+## Constraints & Referential Integrity
 
-- **Referential integrity:** FKs prevent orphaned records
-- **Cascading deletes:** Deleting a retailer deletes its users and requests (intended)
-- **RESTRICT on audit:** Deleting a user fails if they appear in status history (audit trail preserved)
+- **Foreign Key Constraints:**
+  - `users.retailer_id` → `retailers(id)`
+  - `delivery_requests.retailer_id` → `retailers(id)`
+  - `delivery_requests.created_by` → `users(id)`
+  - `delivery_requests.assigned_rider_id` → `users(id)`
+  - `status_events.delivery_request_id` → `delivery_requests(id)`
+  - `status_events.changed_by` → `users(id)`
+- **Referential Protection:** `ON DELETE RESTRICT` on audit foreign keys ensures audit integrity cannot be destroyed.
 
 ## What Works
 
-- ✅ Supports multi-retailer isolation
-- ✅ Tracks full delivery lifecycle
-- ✅ Immutable audit trail for proof
-- ✅ Indexes optimized for common queries
-- ✅ Role-based data model (ready for middleware enforcement)
-
-## What's Simplified
-
-- ✅ No complex permissions in DB (app enforces)
-- ✅ No geolocation tracking (status updates only)
-- ✅ No real-time infrastructure (polling model)
-- ✅ Confirmation code is text, not QR (easy MVP)
+- Full multi-tenant data isolation
+- Complete lifecycle tracking with non-repudiation audit trail
+- Production index coverage for high-frequency polling filters
+- Zero ORM overhead with raw SQL queries and asyncpg pooling
