@@ -11,8 +11,8 @@
 | Solution | Fredrick | Direct continuation of Problem |
 | Architecture | Stephen/Fredrick | Built the actual state machine, can speak to it concretely |
 | Trade-offs | Ibrahim | Owns the trade-off log, reviewed it with fresh eyes |
-| Roadmap | Maria or Mark | Whoever hasn't presented yet, spreads speaking time evenly |
-| Live Demo | Whoever is most comfortable live, likely Maria (frontend) driving, Stephen narrating backend behavior | Demo needs one driver, one narrator, not everyone touching the keyboard |
+| Roadmap | Ibrahim | Whoever hasn't presented yet, spreads speaking time evenly |
+| Live Demo | Maria | (frontend) driving, Stephen narrating backend behavior | Demo needs one driver, one narrator, not everyone touching the keyboard |
 
 
 ## 2. First-Question Ownership by Topic
