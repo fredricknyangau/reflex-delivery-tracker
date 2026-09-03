@@ -1,0 +1,6 @@
+services:
+  - type: static
+    name: reflex-delivery-tracker
+    repo: https://github.com/fredricknyangau/reflex-delivery-tracker
+    env: static
+    staticPublishPath: .
