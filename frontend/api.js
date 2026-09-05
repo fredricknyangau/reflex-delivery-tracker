@@ -207,7 +207,7 @@ initSandbox();
 async function checkBackendOnline() {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     const response = await fetch(`${API_BASE_URL}/requests`, {
       method: "GET",
       signal: controller.signal,
