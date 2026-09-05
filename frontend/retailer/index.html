@@ -13,7 +13,7 @@
         <h1>Reflex</h1>
         <p>Retailer Dashboard</p>
       </div>
-      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+      <div class="header-nav-controls">
         <div id="connection-status-container"></div>
         <div class="user-badge" id="active-user-display">
           <!-- Loaded dynamically -->
@@ -62,7 +62,7 @@
       <!-- Right side: Active & Past Requests -->
       <div>
         <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 1.25rem;">
             <h3 style="font-size: 1.1rem; font-weight: 600; margin: 0;">My Delivery Requests</h3>
             <button class="btn btn-secondary" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="refreshRequestList()">
               Refresh Now
