@@ -13,7 +13,7 @@
         <h1>Reflex</h1>
         <p>Rider Dashboard</p>
       </div>
-      <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+      <div class="header-nav-controls">
         <div id="connection-status-container"></div>
         <div class="user-badge" id="active-user-display">
           <!-- Loaded dynamically -->
@@ -26,7 +26,7 @@
   <div class="container">
     <div id="feedback-alert" style="display: none;"></div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem;">
       <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">My Assigned Deliveries</h2>
       <button class="btn btn-secondary" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem;" onclick="refreshDeliveries()">
         Refresh Now
